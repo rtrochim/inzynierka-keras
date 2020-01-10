@@ -1,12 +1,9 @@
-# This class here implements the game board.
-#
-# The data structure is a list of 24 points.
-
 from gym_backgammon.game.point import Point
 
 
+# This class here implements the game board.
+# The data structure is a list of 24 points.
 class Board:
-
     def __init__(self):
         # Initial board state
         self.points = [Point('b', 2), Point(None, 0), Point(None, 0),
@@ -30,8 +27,8 @@ class Board:
         target.add_first_checker(color) if target.count == 0 else target.add_checker()
         source.remove_checker()
 
-    # Hit opposing checker. Check whether target checker is the only one on point
-    def move_with_hit(self, color, source_point, target_point):
+    # Move and hit opposing checker. Check whether target checker is the only one on point
+    def move_and_hit(self, color, source_point, target_point):
         source = self.points[source_point]
         target = self.points[target_point]
         source.remove_checker()
@@ -39,20 +36,20 @@ class Board:
         opponent = 'b' if color == 'w' else 'w'
         self.hit[opponent] += 1
 
-    # Bears off a checker from the board
+    # Bear off a checker from the board
     def bear_off(self, color, source_point):
         source = self.points[source_point]
         source.remove_checker()
         self.borne_off[color] += 1
 
-    # Moves hit checker back to point
+    # Move hit checker back on point
     def reenter(self, color, target_point):
         target = self.points[target_point]
         target.add_first_checker(color) if target.count == 0 else target.add_checker()
         self.hit[color] -= 1
 
-    # Moves hit checker back to point hitting opponent
-    def reenter_with_hit(self, color, target_point):
+    # Move hit checker back on point and hits opponent
+    def reenter_and_hit(self, color, target_point):
         target = self.points[target_point]
         target.add_first_checker(color)
         opponent = 'b' if color == 'w' else 'w'
