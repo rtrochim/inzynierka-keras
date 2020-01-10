@@ -17,6 +17,5 @@ from gym_backgammon.game.game import all_actions
 import gym
 
 env = gym.make("gym_backgammon:backgammon-v0", opponent=RandomAgent(action_space=gym.spaces.Discrete(len(all_actions()))))
-env.render()
-env.step(env.action_space.sample())
-env.render()
+while True:
+    observation, reward, done, info = env.step(env.action_space.sample())

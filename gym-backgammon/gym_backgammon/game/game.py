@@ -37,7 +37,6 @@ def get_random_action(valid_actions):
 
 
 class Game:
-
     def __init__(self, player, opponent):
         self.board = Board()
         self.w_hit = 0
@@ -58,15 +57,14 @@ class Game:
             b_toss = roll_dice()
 
         if sum(w_toss) > sum(b_toss):
-            print("White begin \n")
             self.turn = 1
         else:
-            print("Black begin \n")
             self.turn = 2
             self.opponent_turn()
 
     # Play the turn
     def player_turn(self, action_index):
+        assert self.turn == 1, 'White playing in Black turn'
         # No valid actions available
         valid_actions, rewards = self.get_valid_actions()
         if not any(valid_actions):
@@ -76,19 +74,19 @@ class Game:
 
         # Valid action chosen, act until moves remain, then return achieved reward
         action = get_action(action_index)
-        for index, actions in enumerate(valid_actions):
-            if action in actions:
+        for index, valid_action in enumerate(valid_actions):
+            if action in valid_action:
                 self.act(action)
                 del self.dice[index]
                 if not self.dice:
                     self.turn = 2
                     self.opponent_turn()
-                return rewards[index][actions.index(action)]
+                return rewards[index][valid_action.index(action)]
 
         # Invalid action chosen, play random valid, return negative reward
         action = get_random_action(valid_actions)
-        for index, action_set in enumerate(valid_actions):
-            if action in action_set:
+        for index, valid_action in enumerate(valid_actions):
+            if action in valid_action:
                 self.act(action)
                 del self.dice[index]
                 if not self.dice:
@@ -96,11 +94,15 @@ class Game:
                     self.opponent_turn()
                 return -10
 
+        # This should never be reached
+        assert False, 'No action was taken!'
+
     # Start opponent turn
     def opponent_turn(self):
         self.dice = roll_dice()  # Roll dice for yourself(black)
         while self.dice:
             if self.game_over():
+                self.print_game()
                 break
             self.play_opponent()
         self.turn = 1
@@ -108,6 +110,7 @@ class Game:
 
     # Play single opponent action
     def play_opponent(self):
+        assert self.turn == 2, 'Black playing in White turn'
         # No valid actions
         valid_actions, _ = self.get_valid_actions()
         if not any(valid_actions):
@@ -151,7 +154,7 @@ class Game:
         """
         action_array = []
         reward_array = []
-        points = self.board.board
+        points = self.board.points
         # Figure out valid actions for each roll
         for roll in self.dice:
             w_indices = []
@@ -166,10 +169,13 @@ class Game:
                 else:
                     empty_indices.append(point_index)
 
+            assert sum(point.count for point in self.board.points if point.color == 'w') + self.w_borne_off + self.w_hit == 15
+            assert sum(point.count for point in self.board.points if point.color == 'b') + self.b_borne_off + self.b_hit == 15
+
             # Check whether anyone can bear off
-            if max(w_indices) < 6 and (self.w_hit == 0):
+            if w_indices and max(w_indices) < 6 and (self.w_hit == 0):
                 self.w_can_bear_off = True
-            if min(b_indices) > 17 and (self.b_hit == 0):
+            if b_indices and min(b_indices) > 17 and (self.b_hit == 0):
                 self.b_can_bear_off = True
 
             actions = []
@@ -212,7 +218,7 @@ class Game:
                             actions.append(('move', point_index, point_index + roll))
                             rewards.append(roll)
                         if ((point_index + roll) in w_indices) and ((points[point_index + roll]).count < 2):
-                            actions.append(('hit', point_index, point_index + roll))
+                            actions.append(('move_with_hit', point_index, point_index + roll))
                             rewards.append(24 - point_index)
                         if self.b_can_bear_off and ((23 - point_index) < roll):
                             actions.append(('bear_off', point_index))
@@ -231,18 +237,19 @@ class Game:
                 if action[0] == "reenter":
                     self.w_hit -= 1
                     self.board.reenter("w", action[1])
-                if action[0] == "reenter_with_hit":
+                elif action[0] == "reenter_with_hit":
                     self.w_hit -= 1
                     self.b_hit += 1
                     self.board.reenter_with_hit("w", action[1])
             else:
                 if action[0] == "move":
                     self.board.move("w", action[1], action[2])
-                if action[0] == "move_with_hit":
+                elif action[0] == "move_with_hit":
                     self.b_hit += 1
                     self.board.move_with_hit("w", action[1], action[2])
-                if action[0] == "bear_off":
+                elif action[0] == "bear_off":
                     self.board.bear_off("w", action[1])
+                    self.w_borne_off = self.board.borne_off['w']
         # Black turn
         if self.turn == 2:
             if self.b_hit > 0:
@@ -261,9 +268,7 @@ class Game:
                     self.board.move_with_hit("b", action[1], action[2])
                 elif action[0] == "bear_off":
                     self.board.bear_off("b", action[1])
-
-        self.w_borne_off = self.board.borne_off['w']
-        self.w_borne_off = self.board.borne_off['b']
+                    self.b_borne_off = self.board.borne_off['b']
 
     # Returns a list with information about current game state
     def get_observation(self):
@@ -276,7 +281,7 @@ class Game:
             state_vector += [self.dice[0], self.dice[1]]
         state_vector += [self.w_hit, self.b_hit, self.w_borne_off, self.b_borne_off]
 
-        for point in self.board.board:
+        for point in self.board.points:
             if point.color == 'w':
                 state_vector += [1, point.count]
             elif point.color == 'b':
@@ -285,23 +290,17 @@ class Game:
                 state_vector += [0, 0]
         return state_vector
 
-    # Returns true if any player has 0 checkers
+    # Game ends when any player has 15 borne off checkers
     def game_over(self):
-        points = self.board.board
-        for color in ['w', 'b']:
-            i = 0
-            for point in points:
-                checkers = point.count
-                if point.color == color:
-                    i += checkers
-            if i < 1:
-                return True
-        return False
+        if self.b_borne_off == 15 or self.w_borne_off == 15:
+            return True
+        else:
+            return False
 
     # Prints current game state to console
     def print_game(self):
         state = self.get_observation()
-        max_pieces_point = max(state)
+        max_pieces_point = max(point.count for point in self.board.points)
         state = zip(state[::2], state[1::2])
         state = list(state)
         up_side = list()
@@ -311,12 +310,12 @@ class Game:
         for i in range(int(3 + (len(state) - 3) / 2), len(state)):
             up_side.append(state[i])
         bottom_side.reverse()
-        board = list()
-        board.append(
-            '  -------------------------------------------------------------- ')
-        board.append(
-            ' |12  13  14  15   16   17   |    | 18   19   20   21   22   23  | ')
-        board.append(
+        output = list()
+        output.append(
+            '  --------------------------------------------------------------- ')
+        output.append(
+            ' | 12  13  14  15   16   17   |    | 18   19   20   21   22   23 | ')
+        output.append(
             ' |---------------------------------------------------------------|')
 
         for i in range(0, max_pieces_point):
@@ -326,9 +325,9 @@ class Game:
                     point.append('w' if item[0] == 1 else 'b')
                 else:
                     point.append(' ')
-            board.append(
-                ' |{}   {}   {}   {}    {}    {}    |    | {}    {}    {}    {}    {}    {}   | '.format(*point))
-        board.append(
+            output.append(
+                ' | {}   {}   {}   {}    {}    {}    |    | {}    {}    {}    {}    {}    {}  | '.format(*point))
+        output.append(
             '  --------------------------------------------------------------- ')
 
         for i in range(0, max_pieces_point):
@@ -338,20 +337,20 @@ class Game:
                     point.append('w' if item[0] == 1 else 'b')
                 else:
                     point.append(' ')
-            board.append(
+            output.append(
                 ' |{}   {}   {}    {}    {}    {}    |    | {}    {}    {}    {}    {}    {}  | '.format(*point))
-        board.append(
+        output.append(
             ' |---------------------------------------------------------------|')
-        board.append(
+        output.append(
             ' |11  10   9   8    7    6    |    | 5    4    3    2    1    0  | ')
-        board.append(
+        output.append(
             '  --------------------------------------------------------------- ')
-        board.append('Dice 1: {}'.format(state[0][0]))
-        board.append('Dice 2: {}'.format(state[0][1]))
-        board.append('White hit: {}'.format(state[1][0]))
-        board.append('Black hit: {}'.format(state[1][1]))
-        board.append('White borne off: {}'.format(state[2][0]))
-        board.append('Black borne off: {}'.format(state[2][1]))
+        output.append('Dice 1: {}'.format(state[0][0]))
+        output.append('Dice 2: {}'.format(state[0][1]))
+        output.append('White hit: {}'.format(state[1][0]))
+        output.append('Black hit: {}'.format(state[1][1]))
+        output.append('White borne off: {}'.format(state[2][0]))
+        output.append('Black borne off: {}'.format(state[2][1]))
 
-        for line in board:
+        for line in output:
             print(line)
