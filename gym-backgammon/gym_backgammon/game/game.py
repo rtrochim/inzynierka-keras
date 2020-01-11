@@ -283,10 +283,12 @@ class Game:
                 state_vector += [0, 0]
         return state_vector
 
-    # Game ends when any player has 15 borne off checkers
+    # Game ends when any player has 15 borne off checkers. This methods return False or who won.
     def game_over(self):
-        if self.black_borne_off == 15 or self.white_borne_off == 15:
-            return True
+        if self.black_borne_off == 15:
+            return 'black'
+        elif self.white_borne_off == 15:
+            return 'white'
         else:
             return False
 
