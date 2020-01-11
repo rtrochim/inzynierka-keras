@@ -136,23 +136,13 @@ class Game:
                 self.dice.pop(index)
                 return
 
+    # Returns valid actions for current dice rolls
+    # [[valid_action_1, valid_action_2, ...],  # Dice 1 valid actions
+    #  [valid_action_1, valid_action_2, ...]]  # Dice 2 valid actions
+    # [[Reward of valid_action_1, Reward of valid_action_2, ...],
+    #  [Reward of valid_action_1, Reward of valid_action_2, ...]]
     def get_valid_actions(self):
-        """Returns two NUMPY array of NUMPY arrays as such:
-        For actions:
-        [
-            [Valid action 1, Valid action 2, ...], # Dice 1 valid actions
-            [Valid action 1, Valid action 2, ...], # Dice 2 valid actions
-            .
-            .
-        ]
-        For rewards:
-        [
-            [Reward of valid action 1, Reward of valid action 2, ...],
-            [Reward of valid action 1, Reward of valid action 2, ...],
-            .
-            .
-        ]
-        """
+
         action_array = []
         reward_array = []
         points = self.board.points
