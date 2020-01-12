@@ -1,19 +1,13 @@
-# This allows to force running on cpu for measurement
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-# import matplotlib.pyplot as plt
-
-import os
-
-# This removes  tf warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 from training import *
 import time
 from keras.models import load_model
 from gym_backgammon.agents.trained import TrainedAgent
+# This removes excessive TensorFlow logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-training_games = 50
+training_games = 1000
 test_games = 100
-runs = 100
+runs = 1
 epochs = 1
 
 try:
@@ -21,16 +15,15 @@ try:
 except:
     print("Could not load trained model")
     model = build_model(input_size=54, output_size=1)
-    print('========= INITIAL RANDOM GAMES =========')
-    env = build_env(opponent=RandomAgent(action_space=continuous_space()))
-    training_data = play_random_games(training_games=training_games, env=env)
-    model = train_model(training_data=training_data, model=model, epochs=1)
+    # print('========= INITIAL RANDOM GAMES =========')
+    # env = build_env(opponent=RandomAgent(action_space=continuous_space()))
+    # training_data = play_random_games(training_games=training_games, env=env)
+    # model = train_model(training_data=training_data, model=model, epochs=1)
 
 # What we begin with
 print('========= INITIAL TEST vs RANDOM  =========')
 validate_against_random(trained_model=model, test_games=test_games)
 
-# Main training loop
 for index in range(runs):
     # Build environment using latest model as opponent
     env = build_env(opponent=TrainedAgent(model=model))
@@ -43,9 +36,9 @@ for index in range(runs):
     # env = build_env(opponent=RandomAgent(action_space=continuous_space()))
     # training_data = play_random_games(training_games=training_games, env=env)
     # model = train_model(training_data=training_data, model=model, epochs=epochs)
-    if index % 10 == 9:
-        print('========= TEST vs RANDOM ' + str(index) + ' =========')
-        validate_against_random(trained_model=model, test_games=test_games)
+    # if index % 10 == 9:
+    #     print('========= TEST vs RANDOM ' + str(index) + ' =========')
+    #     validate_against_random(trained_model=model, test_games=test_games)
 model.save('./models/trained-' + str(round(time.time())) + '.h5')
 
 # What we end with

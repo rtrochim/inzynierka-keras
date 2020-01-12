@@ -6,9 +6,8 @@ import numpy as np
 import os
 from gym_backgammon.agents.random import RandomAgent
 from gym_backgammon.game.game import all_actions
-from keras.activations import relu
 from keras import *
-from keras.layers import Activation, Lambda
+from keras.layers.advanced_activations import ReLU
 
 # We want only won games
 from keras.optimizers import Adam
@@ -56,11 +55,11 @@ def play_training(env, training_games, model):
 
 def build_model(input_size, output_size):
     model = keras.models.Sequential()
-    model.add(keras.layers.Dense(512, input_dim=input_size))
-    model.add(keras.layers.Dense(256))
+    model.add(keras.layers.Dense(32, input_dim=input_size))
+    model.add(keras.layers.Dense(16))
     model.add(keras.layers.Dense(output_size))
-    model.add(Lambda(lambda x: relu(x, threshold=-863, max_value=863)))
-    model.compile(loss='mse', optimizer=keras.optimizers.Adam(lr=100))
+    model.add(keras.layers.ReLU(max_value=863, negative_slope=0.0, threshold=-863.0))
+    model.compile(loss='msle', optimizer=keras.optimizers.Adam(lr=0.01))
     return model
 
 
@@ -74,6 +73,7 @@ def train_model(training_data, model, epochs):
 def play_test(model, env, test_games):
     scores = []
     mistakes = []
+    games = []
     for each_game in range(test_games):
         game_memory = []
         previous_observation = env.reset()
@@ -89,6 +89,7 @@ def play_test(model, env, test_games):
                 break
         scores.append(score)
         mistakes.append(info['invalid actions taken']/len(game_memory))
+        games.append(game_memory)
     print('Test win rate', sum(score for score in scores if score == 1) / len(scores))
     print('Test avg mistake rate', round(statistics.mean(mistakes), 2))
 
