@@ -118,8 +118,10 @@ class Game:
             return
 
         assert len(valid_actions) == len(self.dice)
-
-        action = all_actions()[self.opponent.make_decision(self.get_observation())]
+        action_index = self.opponent.make_decision(self.get_observation())
+        action_index += int(len(all_actions()) / 2)
+        action_index = int(action_index)
+        action = all_actions()[action_index]
 
         # Valid action chosen
         for index, action_set in enumerate(valid_actions):
