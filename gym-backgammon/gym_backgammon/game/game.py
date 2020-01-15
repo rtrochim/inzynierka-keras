@@ -19,7 +19,7 @@ def all_actions():
     actions = []
     for source in range(0, 24):
         for target in range(0, 24):
-            if (target - source) <= 6:
+            if 0 < (target - source) <= 6:
                 actions += [('move', source, target), ('move', target, source),
                             ('move_and_hit', source, target), ('move_and_hit', target, source)]
     for home_checker in chain(range(0, 6), range(18, 24)):
@@ -119,8 +119,6 @@ class Game:
 
         assert len(valid_actions) == len(self.dice)
         action_index = self.opponent.make_decision(self.get_observation())
-        action_index += int(len(all_actions()) / 2)
-        action_index = int(action_index)
         action = all_actions()[action_index]
 
         # Valid action chosen
@@ -144,7 +142,6 @@ class Game:
     # [[Reward of valid_action_1, Reward of valid_action_2, ...],
     #  [Reward of valid_action_1, Reward of valid_action_2, ...]]
     def get_valid_actions(self):
-
         action_array = []
         reward_array = []
         points = self.board.points
@@ -162,6 +159,7 @@ class Game:
                 else:
                     empty_indices.append(point_index)
 
+            # Check if any checker somehow went missing
             assert sum(point.count for point in self.board.points if
                        point.color == 'w') + self.white_borne_off + self.white_hit == 15
             assert sum(point.count for point in self.board.points if

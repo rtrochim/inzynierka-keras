@@ -9,7 +9,7 @@ from gym_backgammon.game.game import Game, all_actions
 class BackgammonEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, opponent, continuous=True):
+    def __init__(self, opponent, continuous=False):
         # Action and observation spaces.
         lower_bound = np.array([1, ] * 2 + [0, ] * 52)
         upper_bound = np.array([6, ] * 2 + [15, ] * 4 + [
@@ -20,7 +20,7 @@ class BackgammonEnv(gym.Env):
         self.observation_space = spaces.Box(low=lower_bound, high=upper_bound,
                                             dtype=np.float32)
 
-        # The action space is either continuous ranging -863 to 863 or discrete, ranging from 0 to 1728
+        # The action space is either continuous ranging -263 to 263 or discrete, ranging from 0 to 527
         # for each possible action of this tuple: (Type, Source, Target)
         if continuous:
             self.action_space = spaces.Box(low=np.array([-int((len(all_actions()) / 2) - 1)]),
@@ -44,18 +44,10 @@ class BackgammonEnv(gym.Env):
             action_index = int(action_index)
 
         reward = self.game.player_turn(action_index)
-        observation = self.game.get_observation()
         if reward == -10:
             self.invalid_actions_taken += 1
-        if self.game.game_over() == 'white':
-            done = True
-            reward = 1
-        elif self.game.game_over() == 'black':
-            done = True
-            reward = -1
-        else:
-            done = False
-            reward = 0
+        observation = self.game.get_observation()
+        done = self.game.game_over()
         info = self.get_info()
         return observation, reward, done, info
 

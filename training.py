@@ -1,16 +1,7 @@
 import statistics
-
-import gym
-import keras
-import numpy as np
-import os
+from utilities import *
+from copy import deepcopy
 from gym_backgammon.agents.random import RandomAgent
-from gym_backgammon.game.game import all_actions
-from keras import *
-from keras.layers.advanced_activations import ReLU
-
-# We want only won games
-from keras.optimizers import Adam
 
 score_requirement = 0
 
@@ -23,50 +14,53 @@ def build_env(opponent):
 
 def play_training(env, training_games, model):
     scores = []
-    mistakes = []
-    accepted_games = []
+    valid_actions = 0
+    training_data = []
+    mistakes = [0] * training_games
     for game_index in range(training_games):
         score = 0
-        game_memory = []
         previous_observation = env.reset()
         done = False
+        game_length = 0
         while not done:
+            game_length += 1
             action = model.predict(np.array([previous_observation]))
-            observation, reward, done, info = env.step(action)
-            game_memory.append([previous_observation, action])
+            observation, reward, done, info = env.step(denormalize_action(action))
+            if reward > 0:
+                training_data.append([deepcopy(previous_observation), deepcopy(action)])
+                valid_actions += 1
+                score += reward
+            else:
+                mistakes[game_index] += 1
             previous_observation = observation
-            score += reward
             if done:
+                mistakes[game_index] /= game_length
                 break
         scores.append(score)
-        mistakes.append(info['invalid actions taken']/len(game_memory))
-        if score > score_requirement:
-            accepted_games.append([game_memory, info['invalid actions taken']])
-    # Sort by how many mistakes were made during the game
-    accepted_games.sort(key=lambda x: x[1])
-    # Remove x% with the most mistakes
-    accepted_games = accepted_games[0:round(len(accepted_games)*0.7)]
-    # Unzip into list of observation->decision
-    training_data = [play for game in accepted_games for play in game[0]]
-    print('Training win rate', sum(score for score in scores if score == 1) / len(scores))
-    print('Training avg mistake rate', round(statistics.mean(mistakes), 2))
+    # games.sort(key=lambda x: x[1], reverse=True)
+    # games = games[0:round(0.8 * len(games))]
+    # training_data = [item for game, score in games for item in game]
+    if len(mistakes) and len(scores):
+        print('Training avg score', statistics.mean(scores))
+        print('Training avg mistake rate', statistics.mean(mistakes))
+    print('Training valid actions', valid_actions)
+    print('Training data length', len(training_data))
     return training_data
 
 
 def build_model(input_size, output_size):
     model = keras.models.Sequential()
-    model.add(keras.layers.Dense(32, input_dim=input_size))
-    model.add(keras.layers.Dense(16))
-    model.add(keras.layers.Dense(output_size))
-    model.add(keras.layers.ReLU(max_value=863, negative_slope=0.0, threshold=-863.0))
-    model.compile(loss='msle', optimizer=keras.optimizers.Adam(lr=0.01))
+    model.add(keras.layers.Dense(128, input_dim=input_size, activation='relu'))
+    model.add(keras.layers.Dense(64))
+    model.add(keras.layers.Dense(output_size, activation='sigmoid'))
+    model.compile(loss='mean_absolute_percentage_error', optimizer=keras.optimizers.Adam(lr=0.001))
     return model
 
 
 def train_model(training_data, model, epochs):
     X = np.array([i[0] for i in training_data]).reshape(-1, len(training_data[0][0]))
     y = np.array([i[1] for i in training_data]).reshape(-1, 1)
-    model.fit(X, y, epochs=epochs, verbose=2, batch_size=8)
+    model.fit(X, y, epochs=epochs, verbose=2, batch_size=64)
     return model
 
 
@@ -79,40 +73,33 @@ def play_test(model, env, test_games):
         previous_observation = env.reset()
         done = False
         score = 0
+        game_length = 0
         while not done:
+            game_length += 1
             action = model.predict(np.array([previous_observation]))
-            game_memory.append([previous_observation, action])
-            new_observation, reward, done, info = env.step(action)
+            game_memory.append([deepcopy(previous_observation), deepcopy(action)])
+            new_observation, reward, done, info = env.step(denormalize_action(action))
             previous_observation = new_observation
             score += reward
             if done:
                 break
         scores.append(score)
-        mistakes.append(info['invalid actions taken']/len(game_memory))
+        mistakes.append(info['invalid actions taken'] / game_length)
         games.append(game_memory)
-    print('Test win rate', sum(score for score in scores if score == 1) / len(scores))
-    print('Test avg mistake rate', round(statistics.mean(mistakes), 2))
+    print('Test avg score', statistics.mean(scores))
+    print('Test avg mistake rate', statistics.mean(mistakes))
 
 
-def get_latest_model(path='./models'):
-    files = os.listdir(path)
-    paths = [os.path.join(path, basename) for basename in files]
-    path = max(paths, key=os.path.getctime)
-    print("Loading model ", path)
-    return keras.models.load_model(path)
-
-
-def train_against_random(training_games, test_games, model, epochs):
-    env = build_env(opponent=RandomAgent(action_space=continuous_space()))
+def train_against_random(training_games, model, epochs):
+    env = build_env(opponent=RandomAgent(action_space=discrete_space()))
     training_data = play_training(env=env, training_games=training_games, model=model)
-    trained_model = train_model(training_data=training_data, model=model, epochs=epochs)
     # play_test(model=trained_model, env=env, test_games=test_games)
-    return trained_model
+    return training_data
 
 
-def validate_against_random(trained_model, test_games):
-    env = build_env(opponent=RandomAgent(action_space=continuous_space()))
-    play_test(model=trained_model, env=env, test_games=test_games)
+def validate_against_random(model, test_games):
+    env = build_env(opponent=RandomAgent(action_space=discrete_space()))
+    play_test(model=model, env=env, test_games=test_games)
 
 
 def play_random_games(training_games, env):
@@ -125,28 +112,22 @@ def play_random_games(training_games, env):
         game_memory = []
         previous_observation = env.reset()
         done = False
+        game_length = 0
         while not done:
+            game_length += 1
             action = env.action_space.sample()
+            game_memory.append([deepcopy(previous_observation), deepcopy(action)])
             observation, reward, done, info = env.step(action)
-            game_memory.append([previous_observation, action])
             previous_observation = observation
             score += reward
             if done:
                 break
         scores.append(score)
-        mistakes.append(info['invalid actions taken']/len(game_memory))
+        mistakes.append(info['invalid actions taken'] / game_length)
         if score > score_requirement:
             accepted_scores.append(score)
             for data in game_memory:
                 training_data.append([data[0], data[1]])
-    print('random win rate', sum(score for score in scores if score == 1) / len(scores))
-    print('avg mistake rate', round(statistics.mean(mistakes), 2))
-
+    print('Random avg score', statistics.mean(scores))
+    print('Random avg mistake rate', statistics.mean(mistakes))
     return training_data
-
-
-def continuous_space():
-    return gym.spaces.Box(low=np.array([-int((len(all_actions()) / 2) - 1)]),
-                   high=np.array(
-                       [int((len(all_actions()) / 2) - 1)]),
-                   dtype=np.float32)
