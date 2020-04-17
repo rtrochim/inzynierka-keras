@@ -50,11 +50,8 @@ def play_training(env, training_games, model):
 
 def build_model(input_size, output_size):
     model = keras.models.Sequential()
-    print("here i am1")
     model.add(keras.layers.Dense(128, input_dim=input_size, activation='relu'))
-    print("here i am2")
     model.add(keras.layers.Dense(64))
-    print("here i am3")
     model.add(keras.layers.Dense(output_size, activation='sigmoid'))
     model.compile(loss='mean_absolute_percentage_error', optimizer=keras.optimizers.Adam(lr=0.001))
     return model

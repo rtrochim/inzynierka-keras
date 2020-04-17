@@ -5,6 +5,7 @@ import time
 from gym_backgammon.agents.trained import TrainedAgent
 # This removes excessive TensorFlow logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# tf.config.set_visible_devices([], 'GPU')
 
 training_games = 10
 test_games = 10
@@ -44,6 +45,3 @@ model.save('./models/trained-' + str(round(time.time())) + '.h5')
 # What we end with
 print('========= FINAL TEST vs RANDOM  =========')
 validate_against_random(model=model, test_games=test_games)
-
-
-
