@@ -1,7 +1,7 @@
 import os
 import gym
 import numpy as np
-import keras
+import tensorflow.keras as keras
 from gym_backgammon.game.game import all_actions
 
 

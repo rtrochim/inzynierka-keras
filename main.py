@@ -1,13 +1,14 @@
+import tensorflow as tf
+from tensorflow.keras.models import load_model
 from training import *
 import time
-from keras.models import load_model
 from gym_backgammon.agents.trained import TrainedAgent
 # This removes excessive TensorFlow logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-training_games = 1000
-test_games = 100
-runs = 20
+training_games = 10
+test_games = 10
+runs = 3
 epochs = 1
 
 try:
